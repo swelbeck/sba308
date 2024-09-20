@@ -83,21 +83,24 @@ function getLearnerData(course, ag, submissions) {
   const result = [];
   const todaysDate = new Date();
 
+  // Check to make sure we are grading the right assigments for the right course
   try {
     if (course.id !== ag.course_id) {
+      // if the course IDs do not match, throw an error
       throw `Input Invalid.`;
     }
 
-    for (let key in submissions) {
-      let entry = submissions[key];
+    for (let entry of submissions) {
       let learnerID = entry.learner_id;
 
       for (let k in ag.assignments) {
         let eachAssignment = ag.assignments[k];
+        // If the learner ID is not in the emptty Object variable, add the learner's ID, and an array for each learner
         if (!learnerObj[learnerID]) {
           learnerObj[learnerID] = [];
         }
 
+        // If the Assigment ID matches the Submission ID, add all this info to the array for that learner in our learnerObj
         if (eachAssignment.id === entry.assignment_id) {
           learnerObj[learnerID].push({
             assignment_id: eachAssignment.id,
@@ -110,41 +113,56 @@ function getLearnerData(course, ag, submissions) {
       }
     }
 
+    // Figuring out points for assignments
     for (let j in learnerObj) {
+      // Create a new object variable for each learner ID, this will end up being in our results variable
       let newObj = { id: j };
       let weightedPoints = 0;
       let weightedPossiblePoints = 0;
       let eachEntry = learnerObj[j];
 
       for (let i in eachEntry) {
-  
+        // create variables for assigment ID, dueDate, submission Date, points and possible points
         let assignmentID = eachEntry[i].assignment_id;
         let dueDate = new Date(eachEntry[i].due_at);
         let submissionDate = new Date(eachEntry[i].submitted_at);
         let points = eachEntry[i].score;
         let pointsPossible = eachEntry[i].points_possible;
 
-        // Check if assignment is late or if due date has not passed yet
-        if (dueDate > todaysDate) {
-          // Ignore, do not include in any grading
-          continue;
-        } else if (dueDate < submissionDate) {
-          // Late, Deduct 10% of Possible points from their score
-          points -= pointsPossible * 0.1;
-          newObj[assignmentID] = points / pointsPossible;
-          weightedPoints += points;
-          weightedPossiblePoints += pointsPossible;
+        // Check to make sure the points_possible is not equal to zero
+        try {
+          if (pointsPossible === 0) {
+            throw new Error(
+              `Assignment ${assignmentID} has zero points_possible. Do not grade.`
+            );
+          }
 
-        } else {
-          // Need to round numbers to two decimal places. Don't forget!
-          newObj[assignmentID] = points / pointsPossible;
-          weightedPoints += points;
-          weightedPossiblePoints += pointsPossible;
+          if (dueDate > todaysDate) {
+            // If due date has not happened, ignore, do not include in any grading
+            continue;
+          } else if (dueDate < submissionDate) {
+            // If late, deduct 10% of Possible points from their score
+            points -= pointsPossible * 0.1;
+            newObj[assignmentID] = Number((points / pointsPossible).toFixed(3));
+            weightedPoints += points;
+            weightedPossiblePoints += pointsPossible;
+          } else {
+            // If submitted on time, grade normally
+            newObj[assignmentID] = Number((points / pointsPossible).toFixed(3));
+            weightedPoints += points;
+            weightedPossiblePoints += pointsPossible;
+          }
+        } catch (err) {
+          console.error(err);
+          continue;
         }
       }
-      newObj[`avg`] = weightedPoints / weightedPossiblePoints;
+      // Calculate weighted average for each learner
+      newObj["avg"] = Number(
+        (weightedPoints / weightedPossiblePoints).toFixed(3)
+      );
+      // Add each object to the results array
       result.push(newObj);
-      newObj = {};
     }
   } catch (error) {
     console.error(error);
@@ -153,20 +171,4 @@ function getLearnerData(course, ag, submissions) {
 }
 
 const result = getLearnerData(CourseInfo, AssignmentGroup, LearnerSubmissions);
-
 console.log(result);
-
-//   const result = [
-//     {
-//       id: 125,
-//       avg: 0.985, // (47 + 150) / (50 + 150)
-//       1: 0.94, // 47 / 50
-//       2: 1.0, // 150 / 150
-//     },
-//     {
-//       id: 132,
-//       avg: 0.82, // (39 + 125) / (50 + 150)
-//       1: 0.78, // 39 / 50
-//       2: 0.833, // late: (140 - 15) / 150
-//     },
-//   ];
